@@ -4,14 +4,14 @@
 # folder for its type. LoRAs are the exception -- they are NEVER baked; the
 # custom node pulls them by URL at request time into models/loras.
 #
-#   models/checkpoints      all-in-one image checkpoints (SDXL, Pony, FLUX fp8)
+#   models/checkpoints      all-in-one image checkpoints (SD1.5, SDXL, Pony, FLUX fp8)
 #   models/diffusion_models standalone UNet/diffusion weights (Wan, split FLUX)
 #   models/text_encoders    text encoders (umt5 for Wan, t5/clip_l for split FLUX)
 #   models/vae              VAEs
 #   models/clip_vision      CLIP-vision encoders (some I2V models)
 #   models/loras            LoRAs -> filled on demand by the node below
 #
-# SIZE WARNING: this image is ~60 GB (FLUX 17 + Pony 6.6 + Wan2.2 I2V ~35.6).
+# SIZE WARNING: this image is ~64 GB (FLUX 17 + Pony 6.6 + Counterfeit 4 + Wan2.2 I2V ~35.6).
 # First cold pull per worker takes a few minutes; cached afterwards. Drop any
 # model block you don't need to shrink it.
 FROM runpod/worker-comfyui:5.8.6-base
@@ -27,6 +27,13 @@ RUN comfy model download \
     --url "https://civitai.com/api/download/models/290640" \
     --relative-path models/checkpoints \
     --filename ponyDiffusionV6XL.safetensors
+
+# ===== IMAGE: Counterfeit-V3.0 (anime SD 1.5, ~4 GB) -> CheckpointLoaderSimple =====
+# SD 1.5 base so SD-1.5-only LoRAs work (e.g. anime-background style LoRAs).
+RUN comfy model download \
+    --url "https://civitai.com/api/download/models/57618" \
+    --relative-path models/checkpoints \
+    --filename counterfeitV30.safetensors
 
 # ===== VIDEO: Wan 2.2 I2V 14B (fp8 scaled). Two diffusion models + encoder + vae =====
 RUN comfy model download \
