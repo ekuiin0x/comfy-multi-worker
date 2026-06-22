@@ -11,7 +11,7 @@
 #   models/clip_vision      CLIP-vision encoders (some I2V models)
 #   models/loras            LoRAs -> filled on demand by the node below
 #
-# SIZE WARNING: this image is ~64 GB (FLUX 17 + Pony 6.6 + Counterfeit 4 + Wan2.2 I2V ~35.6).
+# SIZE WARNING: this image is ~66 GB (FLUX 17 + Pony 6.6 + Counterfeit 4 + RealisticVision 2 + Wan2.2 I2V ~35.6).
 # First cold pull per worker takes a few minutes; cached afterwards. Drop any
 # model block you don't need to shrink it.
 FROM runpod/worker-comfyui:5.8.6-base
@@ -34,6 +34,13 @@ RUN comfy model download \
     --url "https://civitai.com/api/download/models/57618" \
     --relative-path models/checkpoints \
     --filename counterfeitV30.safetensors
+
+# ===== IMAGE: Realistic Vision V6.0 B1 (photoreal SD 1.5, ~2 GB) -> CheckpointLoaderSimple =====
+# Realistic SD 1.5 base so SD-1.5 LoRAs render photoreal humans (Counterfeit is anime-only).
+RUN comfy model download \
+    --url "https://civitai.com/api/download/models/245598" \
+    --relative-path models/checkpoints \
+    --filename realisticVisionV60B1.safetensors
 
 # ===== VIDEO: Wan 2.2 I2V 14B (fp8 scaled). Two diffusion models + encoder + vae =====
 RUN comfy model download \
