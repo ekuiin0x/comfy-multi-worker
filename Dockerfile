@@ -35,13 +35,6 @@ RUN comfy model download \
     --relative-path models/checkpoints \
     --filename counterfeitV30.safetensors
 
-# ===== IMAGE: Realistic Vision V6.0 B1 (photoreal SD 1.5, ~2 GB) -> CheckpointLoaderSimple =====
-# Realistic SD 1.5 base so SD-1.5 LoRAs render photoreal humans (Counterfeit is anime-only).
-RUN comfy model download \
-    --url "https://civitai.com/api/download/models/245598" \
-    --relative-path models/checkpoints \
-    --filename realisticVisionV60B1.safetensors
-
 # ===== VIDEO: Wan 2.2 I2V 14B (fp8 scaled). Two diffusion models + encoder + vae =====
 RUN comfy model download \
     --url "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" \
@@ -64,3 +57,13 @@ RUN comfy model download \
 # Not baked. This node downloads a LoRA from a URL at request time into
 # models/loras (shared by FLUX and SDXL/Pony LoRAs alike) and caches it.
 COPY custom_nodes/comfyui-lora-from-url /comfyui/custom_nodes/comfyui-lora-from-url
+
+# ===== IMAGE: Realistic Vision V6.0 B1 (photoreal SD 1.5, ~2 GB) -> CheckpointLoaderSimple =====
+# Realistic SD 1.5 base so SD-1.5 LoRAs render photoreal humans (Counterfeit is anime-only).
+# APPENDED LAST ON PURPOSE: inserting a model block earlier invalidates the cached
+# ~35 GB Wan layers, forcing a full re-download that blew RunPod's 30-min build limit
+# (build canceled 2026-06-23). Keep new bases at the tail to preserve the layer cache.
+RUN comfy model download \
+    --url "https://civitai.com/api/download/models/245598" \
+    --relative-path models/checkpoints \
+    --filename realisticVisionV60B1.safetensors
