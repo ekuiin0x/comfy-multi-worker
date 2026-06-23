@@ -42,3 +42,59 @@ RUN comfy model download \
 # Not baked. This node downloads a LoRA from a URL at request time into
 # models/loras (shared by FLUX and SDXL/Pony LoRAs alike) and caches it.
 COPY custom_nodes/comfyui-lora-from-url /comfyui/custom_nodes/comfyui-lora-from-url
+
+# =============================================================================
+# IDENTITY-PRESERVING EDIT PIPELINE -- phase 1: InstantID core
+# Appended at the END so the cached base-model layers above never rebuild.
+# Locks a model's face as conditioning so she can be regenerated in new poses/
+# scenes/outfits WITHOUT drifting identity -- the thing pure img2img can't do.
+# (Phase 2 adds OpenPose ControlNet + FaceDetailer once this core is verified.)
+# =============================================================================
+
+# Build tools: insightface ships no cp312 wheel -> it compiles from source.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake && rm -rf /var/lib/apt/lists/*
+
+# cython+numpy MUST precede insightface (its setup.py imports them at build).
+RUN uv pip install --no-cache cython numpy
+
+# InstantID custom node + its deps (insightface, onnxruntime, onnxruntime-gpu).
+RUN git clone --depth=1 https://github.com/cubiq/ComfyUI_InstantID /comfyui/custom_nodes/ComfyUI_InstantID && \
+    uv pip install --no-cache -r /comfyui/custom_nodes/ComfyUI_InstantID/requirements.txt
+
+# InstantID IP-Adapter (face conditioning, ~1.69 GB) -> models/instantid
+RUN comfy model download \
+    --url "https://huggingface.co/InstantX/InstantID/resolve/main/ip-adapter.bin" \
+    --relative-path models/instantid \
+    --filename ip-adapter.bin
+
+# InstantID ControlNet (~2.5 GB) -> models/controlnet
+RUN comfy model download \
+    --url "https://huggingface.co/InstantX/InstantID/resolve/main/ControlNetModel/diffusion_pytorch_model.safetensors" \
+    --relative-path models/controlnet \
+    --filename instantid_controlnet.safetensors
+
+# antelopev2 face-analysis models -> EXACT path models/insightface/models/antelopev2/
+# (this exact subpath is the #1 InstantID footgun; the old antelopev2.zip 404s.)
+RUN for f in 1k3d68 2d106det genderage glintr100 scrfd_10g_bnkps; do \
+      comfy model download \
+        --url "https://huggingface.co/DIAMONIK7777/antelopev2/resolve/main/$f.onnx" \
+        --relative-path models/insightface/models/antelopev2 \
+        --filename "$f.onnx"; \
+    done
+
+# RealVisXL V5.0 photoreal SDXL base (HF, NO CivitAI token, ~6.5 GB).
+# Chosen over a token-gated CivitAI checkpoint to delete the build's #1 failure
+# point; photoreal SDXL gives InstantID strong identity fidelity.
+RUN comfy model download \
+    --url "https://huggingface.co/SG161222/RealVisXL_V5.0/resolve/main/RealVisXL_V5.0_fp16.safetensors" \
+    --relative-path models/checkpoints \
+    --filename realvisxlV50.safetensors
+
+# 4x-UltraSharp upscaler (~67 MB) -> models/upscale_models
+RUN comfy model download \
+    --url "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" \
+    --relative-path models/upscale_models \
+    --filename 4x-UltraSharp.pth
+
+# Validate every custom node still imports -> fail the BUILD here, not the worker.
+RUN cd /comfyui && python main.py --quick-test-for-ci --cpu
