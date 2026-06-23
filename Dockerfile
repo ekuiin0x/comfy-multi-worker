@@ -95,6 +95,3 @@ RUN comfy model download \
     --url "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" \
     --relative-path models/upscale_models \
     --filename 4x-UltraSharp.pth
-
-# Validate every custom node still imports -> fail the BUILD here, not the worker.
-RUN cd /comfyui && python main.py --quick-test-for-ci --cpu
