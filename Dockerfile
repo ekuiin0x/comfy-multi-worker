@@ -95,3 +95,34 @@ RUN comfy model download \
     --url "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth" \
     --relative-path models/upscale_models \
     --filename 4x-UltraSharp.pth
+
+# =============================================================================
+# FLUX UNet-checkpoint-from-URL support (Fluxed Up etc.)
+# Appended at the END so cached base-model layers above never rebuild.
+# The transformer itself is NOT baked -- UNetLoaderFromURL downloads any FLUX
+# checkpoint by URL at request time (token injected per-request, never in the
+# image). We only bake the REUSABLE, token-free CLIP/T5/VAE that every FLUX
+# UNet-only checkpoint needs (author of these checkpoints bakes no VAE/CLIP).
+# =============================================================================
+
+# Generic "download a diffusion model by URL at request time" node.
+COPY custom_nodes/comfyui-model-from-url /comfyui/custom_nodes/comfyui-model-from-url
+
+# FLUX T5-XXL text encoder, fp8 (~4.9 GB, ungated) -> models/text_encoders
+RUN comfy model download \
+    --url "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors" \
+    --relative-path models/text_encoders \
+    --filename t5xxl_fp8_e4m3fn.safetensors
+
+# FLUX CLIP-L text encoder (~246 MB, ungated) -> models/text_encoders
+RUN comfy model download \
+    --url "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors" \
+    --relative-path models/text_encoders \
+    --filename clip_l.safetensors
+
+# FLUX VAE (ae.safetensors, ~335 MB) -> models/vae
+# Sourced from an ungated mirror (BFL repos are gated and we have no HF token).
+RUN comfy model download \
+    --url "https://huggingface.co/ffxvs/vae-flux/resolve/main/ae.safetensors" \
+    --relative-path models/vae \
+    --filename ae.safetensors
