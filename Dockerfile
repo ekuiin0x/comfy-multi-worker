@@ -126,3 +126,33 @@ RUN comfy model download \
     --url "https://huggingface.co/ffxvs/vae-flux/resolve/main/ae.safetensors" \
     --relative-path models/vae \
     --filename ae.safetensors
+
+# =============================================================================
+# RCC REALISM PIPELINE nodes -- FaceDetailer + UltimateSDUpscale.
+# This is the fix for weird small faces + soft/low-res output on the volume
+# endpoint (mu5gzqdiiee90q): core nodes alone can't re-render a face or do a
+# real tiled upscale. Appended at the END so the cached model layers above
+# never rebuild. Installed via RunPod's `comfy-node-install` (surfaces install
+# errors, unlike bare comfy-cli). Registry ids verified against api.comfy.org.
+#   comfyui-impact-pack      -> FaceDetailer, DetailerForEach, SAMLoader
+#   comfyui-impact-subpack   -> UltralyticsDetectorProvider (bbox face detector)
+#   comfyui_ultimatesdupscale-> UltimateSDUpscale (tiled model-based upscale)
+# The 4x-UltraSharp upscaler is ALREADY baked above (models/upscale_models).
+# Detection models are BAKED (below) not put on the volume, because the volume's
+# extra_model_paths.yaml maps only checkpoints/loras/vae/etc -- NOT the
+# `ultralytics`/`sams` folders these nodes read, so a volume copy wouldn't be
+# seen. They're tiny (~430 MB total) so baking them is cheap and reliable.
+# =============================================================================
+RUN comfy-node-install comfyui-impact-pack comfyui-impact-subpack comfyui_ultimatesdupscale
+
+# Face bbox detector (~52 MB) -> models/ultralytics/bbox (UltralyticsDetectorProvider)
+RUN comfy model download \
+    --url "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt" \
+    --relative-path models/ultralytics/bbox \
+    --filename face_yolov8m.pt
+
+# SAM ViT-B for the FaceDetailer mask (~375 MB) -> models/sams
+RUN comfy model download \
+    --url "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" \
+    --relative-path models/sams \
+    --filename sam_vit_b_01ec64.pth
